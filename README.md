@@ -14,20 +14,16 @@ A coding agent built on [oncell.ai](https://oncell.ai) — generates web pages f
 Demo app (Vercel)                    oncell platform (AWS)
 ┌─────────────────────┐             ┌────────────────────────────────┐
 │                     │  "New       │                                │
-│  New Project btn ──────Project"───▶  Cell created (own sandbox,    │
-│                     │             │  storage, port, preview URL)   │
+│  New Project btn ──────Project"───▶  Cell created with agent code  │
 │                     │             │                                │
-│  User types ────────│──┐          │                                │
-│  instruction        │  ▼          │                                │
-│                     │  LLM call   │                                │
-│  API route calls ───│─(OpenRouter)│                                │
-│  Gemini / Claude    │  │          │                                │
-│                     │  ▼          │                                │
-│  Writes code ───────│─────────────▶  write_file → cell storage     │
-│  Saves convo ───────│─────────────▶  db_set → cell database        │
+│  User types ────────│─────────────▶  Agent runs inside cell:       │
+│  instruction        │             │    1. Search code (local 0ms)  │
+│                     │  streaming  │    2. Call LLM (streaming)     │
+│  Code appears ◀─────│──SSE────────│    3. ctx.stream({ text })     │
+│  character by       │             │    4. Write file (local 0ms)   │
+│  character          │             │    5. Return final result      │
 │                     │             │                                │
 │  Preview iframe ────│─────────────▶  {cell-id}.cells.oncell.ai     │
-│  loads from cell    │             │  serves index.html from cell   │
 └─────────────────────┘             └────────────────────────────────┘
 ```
 
@@ -88,18 +84,15 @@ Set env vars: `ONCELL_API_KEY`, `ONCELL_API_URL`, `OPENROUTER_API_KEY`, `MODEL`,
 
 ## oncell API Calls Used
 
-The entire demo uses 5 API calls:
+The entire demo uses 3 API calls:
 
 ```
-POST /api/v1/cells                    → create a cell for a new project
-POST /api/v1/agents/write_file        → write generated code to cell
-POST /api/v1/agents/read_file         → read existing code for edits
-POST /api/v1/agents/db_set            → save conversation history
-POST /api/v1/agents/list_files        → list files in cell
+POST /api/v1/cells                    → create cell with agent code
+POST /api/v1/agents/generate          → send request to agent (streams back)
 GET  {cell-id}.cells.oncell.ai        → live preview (served by cell)
 ```
 
-No Docker, no infra config, no storage setup. Just API calls.
+No Docker, no infra config, no storage setup. The agent handles file writes, DB, and search locally inside the cell.
 
 ## Supported Models
 
