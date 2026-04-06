@@ -5,20 +5,22 @@
 
 const ONCELL_API = process.env.ONCELL_API_URL || "https://api.oncell.ai";
 const ONCELL_KEY = process.env.ONCELL_API_KEY || "";
-const OPENROUTER_KEY = process.env.OPENROUTER_API_KEY || "";
-const MODEL = process.env.MODEL || "google/gemini-2.5-flash";
 
 // Agent code that runs inside the cell
+// API keys come from process.env (injected as secrets) — never in the code
 const AGENT_CODE = `
-const OPENROUTER_KEY = "${OPENROUTER_KEY}";
-const MODEL = "${MODEL}";
-
 const SYSTEM_PROMPT = "You are an expert web developer. Generate a COMPLETE, SINGLE HTML page with embedded CSS and JavaScript. Rules: Output ONLY valid HTML — no markdown fences, no explanation. Include <script src=\\"https://cdn.tailwindcss.com\\"></script> in the head. Use Tailwind CSS for all styling. Include any JavaScript inline in <script> tags. Make it visually polished — proper spacing, colors, typography, responsive. The page must be self-contained. When modifying existing code, preserve structure and only change what was requested.";
 
 module.exports = {
   async generate(ctx, params) {
     const instruction = params.instruction;
     if (!instruction) return { error: "instruction required" };
+
+    // API key and model come from process.env — never hardcoded
+    const OPENROUTER_KEY = process.env.OPENROUTER_KEY;
+    const MODEL = process.env.MODEL || "google/gemini-2.5-flash";
+
+    if (!OPENROUTER_KEY) return { error: "OPENROUTER_KEY not configured" };
 
     ctx.journal.step("start", "Generating: " + instruction);
 
@@ -146,6 +148,10 @@ export async function POST(req: Request) {
       customer_id: projectId,
       tier: "starter",
       agent: AGENT_CODE,
+      secrets: {
+        OPENROUTER_KEY: process.env.OPENROUTER_API_KEY || "",
+        MODEL: process.env.MODEL || "google/gemini-2.5-flash",
+      },
     }),
   });
 
