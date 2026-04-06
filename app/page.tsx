@@ -75,43 +75,69 @@ export default function Home() {
         body: JSON.stringify({ instruction, projectId }),
       });
 
-      const reader = res.body?.getReader();
-      if (!reader) throw new Error("No stream");
-      const decoder = new TextDecoder();
-      let buffer = "";
-      let codeRef = "";
+      const contentType = res.headers.get("content-type") || "";
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
+      if (contentType.includes("text/event-stream")) {
+        // STREAMING — agent is streaming from inside the cell
+        const reader = res.body?.getReader();
+        if (!reader) throw new Error("No stream");
+        const decoder = new TextDecoder();
+        let buffer = "";
+        let codeRef = "";
 
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
 
-        for (const line of lines) {
-          if (!line.startsWith("data: ") || line === "data: [DONE]") continue;
-          try {
-            const data = JSON.parse(line.slice(6));
-            if (data.cellId) setCellId(data.cellId);
-            if (data.text) {
-              codeRef += data.text;
-              setCode(codeRef);
-              setTab("code");
-            }
-            if (data.done) {
-              setEditCount(data.edits || editCount + 1);
-              setFiles(data.files || []);
-              setPreviewReady(true);
-              setTab("preview");
-            }
-          } catch {}
+          for (const line of lines) {
+            if (!line.startsWith("data: ") || line === "data: [DONE]") continue;
+            try {
+              const data = JSON.parse(line.slice(6));
+              if (data.text) {
+                codeRef += data.text;
+                setCode(codeRef);
+                setTab("code");
+              }
+              if (data.done) {
+                setCode(data.code || codeRef);
+                setEditCount(data.edits || editCount + 1);
+                setFiles(data.files || []);
+                setPreviewReady(true);
+                setTab("preview");
+              }
+              if (data.error) {
+                setMessages((prev) => [...prev, { role: "assistant", content: `Error: ${data.error}` }]);
+              }
+            } catch {}
+          }
+        }
+
+        codeRef = codeRef.replace(/^```(?:html?)?\n?/gm, "").replace(/```$/gm, "").trim();
+        if (codeRef) setCode(codeRef);
+        setMessages((prev) => [...prev, {
+          role: "assistant",
+          content: `Wrote index.html (${codeRef.split("\n").length} lines). Preview is live.`
+        }]);
+      } else {
+        // SYNC/ASYNC — agent returned JSON
+        const data = await res.json();
+        if (data.error) {
+          setMessages((prev) => [...prev, { role: "assistant", content: `Error: ${data.error}` }]);
+        } else {
+          setCode(data.code || "");
+          setEditCount(data.edits || editCount + 1);
+          setFiles(data.files || []);
+          setPreviewReady(true);
+          setTab("preview");
+          setMessages((prev) => [...prev, {
+            role: "assistant",
+            content: `Wrote index.html (${(data.code || "").split("\n").length} lines). Preview is live.`
+          }]);
         }
       }
-
-      codeRef = codeRef.replace(/^```(?:html?)?\n?/gm, "").replace(/```$/gm, "").trim();
-      setCode(codeRef);
-      setMessages((prev) => [...prev, { role: "assistant", content: `Wrote index.html (${codeRef.split("\n").length} lines). Preview is live.` }]);
     } catch (err: any) {
       setMessages((prev) => [...prev, { role: "assistant", content: `Error: ${err.message}` }]);
     }
