@@ -377,14 +377,19 @@ function TabBtn({ label, active, onClick }: { label: string; active: boolean; on
 }
 
 function highlightHTML(code: string) {
-  return code.split("\n").map((line, i) => (
-    <div key={i} className="flex">
-      <span className="w-8 text-right pr-3 text-white/15 select-none shrink-0 text-[11px]">{i + 1}</span>
-      <span className="break-all" style={{ wordBreak: "break-word", overflowWrap: "break-word" }}>
-        {colorLine(line)}
-      </span>
-    </div>
-  ));
+  return code.split("\n").map((line, i) => {
+    // Preserve leading whitespace exactly
+    const indent = line.match(/^(\s*)/)?.[1] || "";
+    const content = line.slice(indent.length);
+    return (
+      <div key={i} className="flex">
+        <span className="w-8 text-right pr-3 text-white/15 select-none shrink-0 text-[11px]">{i + 1}</span>
+        <span style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+          <span className="text-white/20">{indent}</span>{colorLine(content)}
+        </span>
+      </div>
+    );
+  });
 }
 
 function colorLine(line: string) {
