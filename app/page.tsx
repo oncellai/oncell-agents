@@ -20,9 +20,31 @@ export default function Home() {
   const [editCount, setEditCount] = useState(0);
   const [previewReady, setPreviewReady] = useState(false);
   const [cellId, setCellId] = useState("");
+  const [cellReady, setCellReady] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const previewUrl = cellId ? `https://${cellId}.${CELLS_DOMAIN}` : "";
+
+  // Create cell on mount
+  useEffect(() => {
+    async function createCell() {
+      try {
+        const res = await fetch("/api/create-project", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ projectId }),
+        });
+        const data = await res.json();
+        if (data.cellId) {
+          setCellId(data.cellId);
+          setCellReady(true);
+        }
+      } catch (err) {
+        console.error("Failed to create cell:", err);
+      }
+    }
+    createCell();
+  }, [projectId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -106,6 +128,11 @@ export default function Home() {
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {messages.length === 0 && (
             <div className="text-center mt-16">
+              {!cellReady ? (
+                <p className="text-[#d4a54a] text-sm animate-pulse mb-4">Creating cell...</p>
+              ) : (
+                <p className="text-green-400/70 text-xs mb-4">Cell ready</p>
+              )}
               <p className="text-white/60 text-sm mb-1">Describe what you want to build</p>
               <p className="text-white/40 text-xs mb-5">Each project gets its own isolated cell on oncell.ai</p>
               {["A landing page for a SaaS product", "A pricing page with 3 tiers", "A dashboard with charts and stats"].map((s) => (
@@ -139,7 +166,7 @@ export default function Home() {
             />
             <button
               type="submit"
-              disabled={generating || !input.trim()}
+              disabled={generating || !input.trim() || !cellReady}
               className="px-4 py-2 bg-[#d4a54a] text-[#0a0a0a] text-sm font-semibold rounded-lg disabled:opacity-40"
             >
               Send
