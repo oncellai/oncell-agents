@@ -23,12 +23,21 @@ export default function Home() {
   const [cellReady, setCellReady] = useState(false);
   const [creatingCell, setCreatingCell] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const codeEndRef = useRef<HTMLDivElement>(null);
+  const [selectedFile, setSelectedFile] = useState<string>("index.html");
 
   const previewUrl = cellId ? `https://${cellId}.${CELLS_DOMAIN}` : "";
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // Auto-scroll code view while generating
+  useEffect(() => {
+    if (generating && tab === "code") {
+      codeEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [code, generating, tab]);
 
   function startNewProject() {
     const id = `demo-${Date.now().toString(36)}`;
@@ -300,9 +309,16 @@ export default function Home() {
             )
           ) : tab === "code" ? (
             <div className="overflow-auto h-full bg-[#0d0d0d]">
+              {selectedFile && selectedFile !== "index.html" && (
+                <div className="flex items-center gap-2 px-4 py-2 border-b border-white/[0.04] bg-white/[0.02]">
+                  <span className="text-xs font-mono text-white/50">{selectedFile}</span>
+                  <button onClick={() => setSelectedFile("index.html")} className="ml-auto text-xs text-white/30 hover:text-white/50">back to index.html</button>
+                </div>
+              )}
               <pre className="p-4 text-[13px] leading-5 font-mono whitespace-pre">
                 {code ? highlightHTML(code) : <span className="text-white/40">No code generated yet</span>}
               </pre>
+              <div ref={codeEndRef} />
             </div>
           ) : (
             <div className="p-4 space-y-1">
@@ -310,9 +326,32 @@ export default function Home() {
                 <p className="text-white/50 text-sm">No files yet</p>
               ) : (
                 files.map((f) => (
-                  <div key={f} className="flex items-center gap-2 px-3 py-1.5 rounded text-xs font-mono text-white/60 bg-white/[0.02]">
+                  <button
+                    key={f}
+                    onClick={async () => {
+                      setSelectedFile(f);
+                      setTab("code");
+                      // Fetch file content from cell
+                      try {
+                        const res = await fetch("/api/generate", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ instruction: "__read_file__", projectId }),
+                        });
+                        // Use direct read via oncell API
+                        const r = await fetch(`/api/read-file?projectId=${projectId}&path=${encodeURIComponent(f)}`);
+                        if (r.ok) {
+                          const data = await r.json();
+                          if (data.content) setCode(data.content);
+                        }
+                      } catch {}
+                    }}
+                    className="flex items-center gap-2 px-3 py-2 rounded text-xs font-mono text-white/60 bg-white/[0.02] hover:bg-white/[0.06] hover:text-white/80 w-full text-left cursor-pointer transition-colors"
+                  >
+                    <span className="text-white/30">&#9702;</span>
                     {f}
-                  </div>
+                    <span className="ml-auto text-white/20">view</span>
+                  </button>
                 ))
               )}
             </div>
@@ -332,27 +371,10 @@ function TabBtn({ label, active, onClick }: { label: string; active: boolean; on
 }
 
 function highlightHTML(code: string) {
-  const lines = code.split("\n");
-  return lines.map((line, i) => (
+  return code.split("\n").map((line, i) => (
     <div key={i} className="flex">
       <span className="w-10 text-right pr-4 text-white/20 select-none shrink-0">{i + 1}</span>
-      <span dangerouslySetInnerHTML={{ __html: colorize(line) }} />
+      <span className="text-white/60">{line}</span>
     </div>
   ));
-}
-
-function colorize(line: string): string {
-  return line
-    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-    // HTML comments
-    .replace(/(<!--.*?-->|&lt;!--.*?--&gt;)/g, '<span style="color:#555">$1</span>')
-    // Tags
-    .replace(/(&lt;\/?)([\w-]+)/g, '$1<span style="color:#e85454">$2</span>')
-    // Attributes
-    .replace(/\s([\w-]+)(=)/g, ' <span style="color:#d4a54a">$1</span>$2')
-    // Strings
-    .replace(/"([^"]*)"/g, '<span style="color:#5cdb7f">"$1"</span>')
-    // JS keywords
-    .replace(/\b(function|const|let|var|return|if|else|for|class|document|window|addEventListener)\b/g,
-      '<span style="color:#c9a0ff">$1</span>');
 }
