@@ -1,12 +1,14 @@
 /**
- * Proxy to the agent running inside the oncell cell.
- * Supports all three agent response modes:
- *   - Sync/Async → JSON response (forwarded as-is)
- *   - Streaming → SSE (forwarded as-is)
+ * Send a request to the agent inside the oncell cell.
+ * Uses @oncell/sdk. Forwards the response (JSON or SSE stream).
  */
 
-const ONCELL_API = process.env.ONCELL_API_URL || "https://api.oncell.ai";
-const ONCELL_KEY = process.env.ONCELL_API_KEY || "";
+import { OnCell } from "@oncell/sdk";
+
+const oncell = new OnCell({
+  apiKey: process.env.ONCELL_API_KEY,
+  baseUrl: process.env.ONCELL_API_URL,
+});
 
 export async function POST(req: Request) {
   const { instruction, projectId } = await req.json();
@@ -15,17 +17,9 @@ export async function POST(req: Request) {
     return Response.json({ error: "instruction and projectId required" }, { status: 400 });
   }
 
-  const res = await fetch(`${ONCELL_API}/api/v1/agents/generate`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${ONCELL_KEY}`,
-      "Content-Type": "application/json",
-      "X-Customer-ID": projectId,
-    },
-    body: JSON.stringify({ instruction }),
-  });
+  // agentRequest returns the raw Response (supports SSE streaming)
+  const res = await oncell.cells.agentRequest(projectId, "generate", { instruction });
 
-  // Forward the response as-is (JSON or SSE stream)
   return new Response(res.body, {
     status: res.status,
     headers: {
