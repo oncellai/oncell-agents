@@ -96,6 +96,12 @@ export default function Home() {
             if (!line.startsWith("data: ") || line === "data: [DONE]") continue;
             try {
               const data = JSON.parse(line.slice(6));
+              if (data.status === "calling_llm") {
+                setMessages((prev) => [...prev.filter(m => m.role !== "status"), { role: "assistant" as const, content: `Calling ${data.model}...` }]);
+              }
+              if (data.status === "writing") {
+                setMessages((prev) => [...prev.filter(m => !m.content.startsWith("Calling")), { role: "assistant" as const, content: `Writing ${data.lines} lines...` }]);
+              }
               if (data.text) {
                 codeRef += data.text;
                 setCode(codeRef);

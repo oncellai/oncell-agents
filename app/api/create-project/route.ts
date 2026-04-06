@@ -52,43 +52,23 @@ module.exports = {
     }
 
     ctx.journal.step("llm", "Calling " + MODEL);
+    ctx.stream({ status: "calling_llm", model: MODEL });
 
-    // Call LLM with streaming (only network call from the cell)
+    // Call LLM (only network call from the cell)
     const llmRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
         "Authorization": "Bearer " + OPENROUTER_KEY,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ model: MODEL, messages, temperature: 0.2, stream: true }),
+      body: JSON.stringify({ model: MODEL, messages, temperature: 0.2 }),
     });
 
-    // Stream LLM chunks back to the client via ctx.stream()
-    let code = "";
-    const reader = llmRes.body.getReader();
-    const decoder = new TextDecoder();
-    let buf = "";
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buf += decoder.decode(value, { stream: true });
-      const lines = buf.split("\\n");
-      buf = lines.pop() || "";
-      for (const line of lines) {
-        if (!line.startsWith("data: ") || line === "data: [DONE]") continue;
-        try {
-          const chunk = JSON.parse(line.slice(6));
-          const text = chunk.choices && chunk.choices[0] && chunk.choices[0].delta && chunk.choices[0].delta.content;
-          if (text) {
-            code += text;
-            ctx.stream({ text });
-          }
-        } catch {}
-      }
-    }
-
+    const llmData = await llmRes.json();
+    let code = (llmData.choices && llmData.choices[0] && llmData.choices[0].message && llmData.choices[0].message.content) || "";
     code = code.replace(/^\`\`\`(?:html?)?\\n?/gm, "").replace(/\`\`\`$/gm, "").trim();
+
+    ctx.stream({ status: "writing", lines: code.split("\\n").length });
 
     const lines = code.split("\\n").length;
     ctx.journal.step("write", "Writing index.html", { lines });
