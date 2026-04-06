@@ -308,17 +308,23 @@ export default function Home() {
               </div>
             )
           ) : tab === "code" ? (
-            <div className="overflow-auto h-full bg-[#0d0d0d]">
-              {selectedFile && selectedFile !== "index.html" && (
-                <div className="flex items-center gap-2 px-4 py-2 border-b border-white/[0.04] bg-white/[0.02]">
-                  <span className="text-xs font-mono text-white/50">{selectedFile}</span>
-                  <button onClick={() => setSelectedFile("index.html")} className="ml-auto text-xs text-white/30 hover:text-white/50">back to index.html</button>
+            <div className="flex flex-col h-full bg-[#0d0d0d]">
+              {/* File tab */}
+              <div className="flex items-center border-b border-white/[0.04] bg-[#111] shrink-0">
+                <div className="flex items-center gap-2 px-4 py-2 border-b-2 border-[#d4a54a] text-xs font-mono">
+                  <span className="text-[#d4a54a]">{selectedFile || "index.html"}</span>
+                  {generating && <span className="text-white/25 animate-pulse">generating...</span>}
+                  {!generating && code && <span className="text-white/20">{code.split("\n").length} lines</span>}
                 </div>
-              )}
-              <pre className="p-4 text-[13px] leading-5 font-mono whitespace-pre">
-                {code ? highlightHTML(code) : <span className="text-white/40">No code generated yet</span>}
-              </pre>
-              <div ref={codeEndRef} />
+                {selectedFile && selectedFile !== "index.html" && (
+                  <button onClick={() => { setSelectedFile("index.html"); }} className="ml-auto px-3 text-xs text-white/25 hover:text-white/50 font-mono">index.html</button>
+                )}
+              </div>
+              {/* Code content */}
+              <div className="overflow-y-auto flex-1 p-4 text-[13px] leading-6 font-mono">
+                {code ? highlightHTML(code) : <div className="text-white/30 text-center mt-20">No code generated yet</div>}
+                <div ref={codeEndRef} />
+              </div>
             </div>
           ) : (
             <div className="p-4 space-y-1">
@@ -373,8 +379,85 @@ function TabBtn({ label, active, onClick }: { label: string; active: boolean; on
 function highlightHTML(code: string) {
   return code.split("\n").map((line, i) => (
     <div key={i} className="flex">
-      <span className="w-10 text-right pr-4 text-white/20 select-none shrink-0">{i + 1}</span>
-      <span className="text-white/60">{line}</span>
+      <span className="w-8 text-right pr-3 text-white/15 select-none shrink-0 text-[11px]">{i + 1}</span>
+      <span className="break-all" style={{ wordBreak: "break-word", overflowWrap: "break-word" }}>
+        {colorLine(line)}
+      </span>
     </div>
   ));
+}
+
+function colorLine(line: string) {
+  // HTML comments
+  if (line.trim().startsWith("<!--") || line.trim().startsWith("/*")) {
+    return <span className="text-white/25">{line}</span>;
+  }
+  // JS single-line comments
+  if (line.trim().startsWith("//")) {
+    return <span className="text-white/25">{line}</span>;
+  }
+
+  // Tokenize the line into segments
+  const parts: React.ReactNode[] = [];
+  let remaining = line;
+  let key = 0;
+
+  while (remaining.length > 0) {
+    // HTML tags: <tagname or </tagname
+    const tagMatch = remaining.match(/^(<\/?)([\w-]+)/);
+    if (tagMatch) {
+      parts.push(<span key={key++} className="text-white/40">{tagMatch[1]}</span>);
+      parts.push(<span key={key++} className="text-[#e85454]">{tagMatch[2]}</span>);
+      remaining = remaining.slice(tagMatch[0].length);
+      continue;
+    }
+
+    // Attributes: word=
+    const attrMatch = remaining.match(/^(\s+)([\w-]+)(=)/);
+    if (attrMatch) {
+      parts.push(<span key={key++} className="text-white/40">{attrMatch[1]}</span>);
+      parts.push(<span key={key++} className="text-[#d4a54a]">{attrMatch[2]}</span>);
+      parts.push(<span key={key++} className="text-white/40">{attrMatch[3]}</span>);
+      remaining = remaining.slice(attrMatch[0].length);
+      continue;
+    }
+
+    // Strings: "..."
+    const strMatch = remaining.match(/^"([^"]*)"/);
+    if (strMatch) {
+      parts.push(<span key={key++} className="text-[#5cdb7f]">&quot;{strMatch[1]}&quot;</span>);
+      remaining = remaining.slice(strMatch[0].length);
+      continue;
+    }
+
+    // Single-quoted strings
+    const sqMatch = remaining.match(/^'([^']*)'/);
+    if (sqMatch) {
+      parts.push(<span key={key++} className="text-[#5cdb7f]">&apos;{sqMatch[1]}&apos;</span>);
+      remaining = remaining.slice(sqMatch[0].length);
+      continue;
+    }
+
+    // JS keywords
+    const kwMatch = remaining.match(/^(function|const|let|var|return|if|else|for|class|document|window|addEventListener|querySelector|new|this|true|false|null)\b/);
+    if (kwMatch) {
+      parts.push(<span key={key++} className="text-[#c9a0ff]">{kwMatch[0]}</span>);
+      remaining = remaining.slice(kwMatch[0].length);
+      continue;
+    }
+
+    // Closing > or />
+    const closeMatch = remaining.match(/^(\s*\/?>)/);
+    if (closeMatch) {
+      parts.push(<span key={key++} className="text-white/40">{closeMatch[0]}</span>);
+      remaining = remaining.slice(closeMatch[0].length);
+      continue;
+    }
+
+    // Default: take one character
+    parts.push(<span key={key++} className="text-white/60">{remaining[0]}</span>);
+    remaining = remaining.slice(1);
+  }
+
+  return parts;
 }
