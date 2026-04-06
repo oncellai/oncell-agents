@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
-    "oncell": "^0.1.0",
+    "@oncell/sdk": "^0.2.0",
     "openai": "^4.0.0"
   }
 }

@@ -10,7 +10,7 @@
  *   status    — return project info (files, conversation, preview URL)
  */
 
-import { Agent, Cell } from "oncell";
+import { Agent, Cell } from "@oncell/sdk";
 import OpenAI from "openai";
 
 const openai = new OpenAI({
