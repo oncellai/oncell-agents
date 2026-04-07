@@ -2,6 +2,10 @@
 
 A coding agent built on [oncell.ai](https://oncell.ai) — generates web pages from natural language. Each project gets its own isolated cell with persistent storage, database, and a live preview URL.
 
+## Demo
+
+[![Watch the demo](https://img.youtube.com/vi/rsz4EiO27-A/maxresdefault.jpg)](https://www.youtube.com/watch?v=rsz4EiO27-A)
+
 ## How It Works
 
 1. User clicks **"New Project"** → an oncell cell is created on AWS
