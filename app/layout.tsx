@@ -13,8 +13,20 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "oncell demo — AI Coding Agent",
-  description: "Generate Next.js apps from natural language using oncell.ai",
+  title: "AI Coding Agents — Generate code with AI | coding.oncell.ai",
+  description: "Free AI coding agents. Generate HTML apps, React components, AWS CDK infrastructure, REST APIs, and code reviews. No signup required. Powered by OnCell.",
+  metadataBase: new URL("https://coding.oncell.ai"),
+  openGraph: {
+    title: "AI Coding Agents — coding.oncell.ai",
+    description: "Free AI agents that write production code. No signup required.",
+    siteName: "OnCell Coding Agents",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "AI Coding Agents — coding.oncell.ai",
+    description: "Free AI agents that write production code. No signup required.",
+  },
 };
 
 export default function RootLayout({
